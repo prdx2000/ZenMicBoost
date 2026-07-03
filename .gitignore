@@ -1,0 +1,14 @@
+## .NET / Visual Studio build artifacts
+bin/
+obj/
+*.user
+.vs/
+publish/
+
+## Test results
+[Tt]est[Rr]esult*/
+*.trx
+
+## Rider / VS Code
+.idea/
+.vscode/
