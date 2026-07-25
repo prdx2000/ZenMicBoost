@@ -4,6 +4,7 @@ using MicBoost.App.ViewModels;
 using MicBoost.App.Views;
 using MicBoost.Audio.Devices;
 using MicBoost.Audio.Engine;
+using MicBoost.Audio.Loopback;
 using MicBoost.Audio.Output;
 using MicBoost.Audio.Settings;
 using Microsoft.Extensions.DependencyInjection;
@@ -62,6 +63,8 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IVirtualOutputDevice, VbCableOutputDevice>();
         services.AddSingleton<IVirtualCableDetector, VirtualCableDetector>();
         services.AddSingleton<IMicBoostEngine, MicBoostEngine>();
+        services.AddSingleton<IAppAudioSessionService, AppAudioSessionService>();
+        services.AddSingleton<IMediaSessionInfoService, MediaSessionInfoService>();
         services.AddSingleton<ISettingsService>(_ => new JsonSettingsService());
 
         services.AddSingleton<IStartupService, StartupService>();

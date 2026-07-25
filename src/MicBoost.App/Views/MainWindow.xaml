@@ -52,166 +52,299 @@
             </ui:Card>
         </Grid>
 
-        <!-- Main screen: device selection + real-time gain control. -->
-        <Grid Grid.Row="1" Margin="20,12,20,12"
-              Visibility="{Binding IsCableInstalled, Converter={StaticResource BooleanToVisibilityConverter}}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="280" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+        <!-- Main screen: microphone tab + app-audio tab. -->
+        <TabControl Grid.Row="1" Margin="20,12,20,12"
+                    Visibility="{Binding IsCableInstalled, Converter={StaticResource BooleanToVisibilityConverter}}">
 
-            <!-- Device list -->
-            <ui:Card Grid.Column="0" Margin="0,0,10,0" Padding="16">
-                <DockPanel>
-                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                        <ui:Button DockPanel.Dock="Right" Icon="{ui:SymbolIcon ArrowSync24}"
-                                   Appearance="Transparent" ToolTip="Refresh devices"
-                                   Command="{Binding RefreshDevicesListCommand}" />
-                        <TextBlock Text="Microphones" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    </DockPanel>
+            <!-- Microphone tab: device selection + real-time gain control. -->
+            <TabItem Header="Microphone">
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-                    <ListBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
-                             BorderThickness="0" Background="Transparent">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Margin="2,6">
-                                    <ui:SymbolIcon Symbol="Mic24" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Name}" TextWrapping="Wrap" MaxWidth="180" />
-                                        <TextBlock Text="Default device" FontSize="11" Opacity="0.6"
-                                                   Visibility="{Binding IsDefault, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <!-- Device list -->
+                    <ui:Card Grid.Column="0" Margin="0,0,10,0" Padding="16">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                                <ui:Button DockPanel.Dock="Right" Icon="{ui:SymbolIcon ArrowSync24}"
+                                           Appearance="Transparent" ToolTip="Refresh devices"
+                                           Command="{Binding RefreshDevicesListCommand}" />
+                                <TextBlock Text="Microphones" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </DockPanel>
+
+                            <ListBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
+                                     BorderThickness="0" Background="Transparent">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="2,6">
+                                            <ui:SymbolIcon Symbol="Mic24" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Name}" TextWrapping="Wrap" MaxWidth="180" />
+                                                <TextBlock Text="Default device" FontSize="11" Opacity="0.6"
+                                                           Visibility="{Binding IsDefault, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </ui:Card>
+
+                    <!-- Gain control + meters -->
+                    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <ui:Card Margin="0,0,0,10" Padding="24">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Gain" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding IsMuted, Mode=TwoWay}"
+                                                          OnContent="Muted" OffContent="Mute" />
+                                    </Grid>
+
+                                    <TextBlock Text="{Binding GainDb, Converter={StaticResource GainDbDisplay}}"
+                                               FontSize="48" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,16" />
+
+                                    <Slider Minimum="{Binding MinGainDb}" Maximum="{Binding MaxGainDb}"
+                                            TickFrequency="{Binding GainStepDb}" IsSnapToTickEnabled="True"
+                                            Value="{Binding GainDb, Mode=TwoWay}"
+                                            IsMoveToPointEnabled="True" Margin="8,0" />
+
+                                    <Grid Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="-30 dB" Opacity="0.6" HorizontalAlignment="Left" />
+                                        <TextBlock Grid.Column="1" Text="0 dB" Opacity="0.6" HorizontalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="+30 dB" Opacity="0.6" HorizontalAlignment="Right" />
+                                    </Grid>
+
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
+                                        <ui:Button Icon="{ui:SymbolIcon Subtract24}" Appearance="Secondary"
+                                                   Command="{Binding DecreaseGainCommand}" ToolTip="Decrease 0.5 dB" Margin="0,0,10,0" />
+                                        <ui:NumberBox Value="{Binding GainDb, Mode=TwoWay}" Minimum="{Binding MinGainDb}"
+                                                      Maximum="{Binding MaxGainDb}" SmallChange="{Binding GainStepDb}"
+                                                      Width="120" TextAlignment="Center" />
+                                        <ui:Button Icon="{ui:SymbolIcon Add24}" Appearance="Secondary"
+                                                   Command="{Binding IncreaseGainCommand}" ToolTip="Increase 0.5 dB" Margin="10,0,10,0" />
+                                        <ui:Button Content="Reset" Icon="{ui:SymbolIcon ArrowReset24}"
+                                                   Command="{Binding ResetGainCommand}" />
+                                    </StackPanel>
+
+                                    <ui:InfoBar Title="Limiting active" Message="The signal is being softly limited to avoid clipping — consider lowering the gain."
+                                                Severity="Warning" IsOpen="{Binding IsLimiting}" IsClosable="False" Margin="0,20,0,0" />
+                                </StackPanel>
+                            </ui:Card>
+
+                            <ui:Card Margin="0,0,0,10" Padding="24">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Bass" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding BassDb, Converter={StaticResource GainDbDisplay}}"
+                                                   FontSize="20" FontWeight="SemiBold" Opacity="0.85" VerticalAlignment="Center" />
+                                    </Grid>
+
+                                    <TextBlock Text="Shapes the low end of your voice (a shelf below ~200 Hz), independent of overall gain."
+                                               Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,12" />
+
+                                    <Slider Minimum="{Binding MinBassDb}" Maximum="{Binding MaxBassDb}"
+                                            TickFrequency="{Binding BassStepDb}" IsSnapToTickEnabled="True"
+                                            Value="{Binding BassDb, Mode=TwoWay}"
+                                            IsMoveToPointEnabled="True" Margin="8,0" />
+
+                                    <Grid Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="-30 dB" Opacity="0.6" HorizontalAlignment="Left" />
+                                        <TextBlock Grid.Column="1" Text="0 dB" Opacity="0.6" HorizontalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="+30 dB" Opacity="0.6" HorizontalAlignment="Right" />
+                                    </Grid>
+
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
+                                        <ui:Button Icon="{ui:SymbolIcon Subtract24}" Appearance="Secondary"
+                                                   Command="{Binding DecreaseBassCommand}" ToolTip="Decrease 0.5 dB" Margin="0,0,10,0" />
+                                        <ui:NumberBox Value="{Binding BassDb, Mode=TwoWay}" Minimum="{Binding MinBassDb}"
+                                                      Maximum="{Binding MaxBassDb}" SmallChange="{Binding BassStepDb}"
+                                                      Width="120" TextAlignment="Center" />
+                                        <ui:Button Icon="{ui:SymbolIcon Add24}" Appearance="Secondary"
+                                                   Command="{Binding IncreaseBassCommand}" ToolTip="Increase 0.5 dB" Margin="10,0,10,0" />
+                                        <ui:Button Content="Reset" Icon="{ui:SymbolIcon ArrowReset24}"
+                                                   Command="{Binding ResetBassCommand}" />
                                     </StackPanel>
                                 </StackPanel>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-            </ui:Card>
+                            </ui:Card>
 
-            <!-- Gain control + meters -->
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
-                <StackPanel>
-                    <ui:Card Margin="0,0,0,10" Padding="24">
-                        <StackPanel>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Gain" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding IsMuted, Mode=TwoWay}"
-                                                  OnContent="Muted" OffContent="Mute" />
-                            </Grid>
+                            <ui:Card Padding="24">
+                                <StackPanel>
+                                    <TextBlock Text="Levels" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,16" />
 
-                            <TextBlock Text="{Binding GainDb, Converter={StaticResource GainDbDisplay}}"
-                                       FontSize="48" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,16" />
+                                    <TextBlock Text="Input (before gain)" Opacity="0.7" Margin="0,0,0,4" />
+                                    <ProgressBar Value="{Binding InputLevel, Mode=OneWay}" Minimum="0" Maximum="1" Height="10" Margin="0,0,0,16" />
 
-                            <Slider Minimum="{Binding MinGainDb}" Maximum="{Binding MaxGainDb}"
-                                    TickFrequency="{Binding GainStepDb}" IsSnapToTickEnabled="True"
-                                    Value="{Binding GainDb, Mode=TwoWay}"
-                                    IsMoveToPointEnabled="True" Margin="8,0" />
+                                    <TextBlock Text="Output (after bass + gain, mixed with app audio)" Opacity="0.7" Margin="0,0,0,4" />
+                                    <ProgressBar Value="{Binding OutputLevel, Mode=OneWay}" Minimum="0" Maximum="1" Height="10">
+                                        <ProgressBar.Style>
+                                            <Style TargetType="ProgressBar">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsLimiting}" Value="True">
+                                                        <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ProgressBar.Style>
+                                    </ProgressBar>
 
-                            <Grid Margin="0,4,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="-30 dB" Opacity="0.6" HorizontalAlignment="Left" />
-                                <TextBlock Grid.Column="1" Text="0 dB" Opacity="0.6" HorizontalAlignment="Center" />
-                                <TextBlock Grid.Column="2" Text="+30 dB" Opacity="0.6" HorizontalAlignment="Right" />
-                            </Grid>
+                                    <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                               TextWrapping="Wrap" Margin="0,16,0,0"
+                                               Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibility}}" />
+                                </StackPanel>
+                            </ui:Card>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
 
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
-                                <ui:Button Icon="{ui:SymbolIcon Subtract24}" Appearance="Secondary"
-                                           Command="{Binding DecreaseGainCommand}" ToolTip="Decrease 0.5 dB" Margin="0,0,10,0" />
-                                <ui:NumberBox Value="{Binding GainDb, Mode=TwoWay}" Minimum="{Binding MinGainDb}"
-                                              Maximum="{Binding MaxGainDb}" SmallChange="{Binding GainStepDb}"
-                                              Width="120" TextAlignment="Center" />
-                                <ui:Button Icon="{ui:SymbolIcon Add24}" Appearance="Secondary"
-                                           Command="{Binding IncreaseGainCommand}" ToolTip="Increase 0.5 dB" Margin="10,0,10,0" />
-                                <ui:Button Content="Reset" Icon="{ui:SymbolIcon ArrowReset24}"
-                                           Command="{Binding ResetGainCommand}" />
+            <!-- App Audio tab: mirror one app's playback into the boosted mic output. -->
+            <TabItem Header="App Audio">
+                <Grid Margin="0,12,0,0">
+                <ui:Card MaxWidth="480" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24"
+                         Visibility="{Binding IsAppAudioSupported, Converter={StaticResource InverseBoolToVisibility}}">
+                    <StackPanel HorizontalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Warning24" FontSize="32" HorizontalAlignment="Center" Foreground="{DynamicResource SystemFillColorCautionBrush}" Margin="0,0,0,12" />
+                        <TextBlock Text="App audio mirroring needs Windows 10 version 2004 (build 19041) or later."
+                                   TextWrapping="Wrap" TextAlignment="Center" Opacity="0.8" />
+                    </StackPanel>
+                </ui:Card>
+
+                <Grid Visibility="{Binding IsAppAudioSupported, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Apps currently known to have an audio session -->
+                    <ui:Card Grid.Column="0" Margin="0,0,10,0" Padding="16">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                                <ui:Button DockPanel.Dock="Right" Icon="{ui:SymbolIcon ArrowSync24}"
+                                           Appearance="Transparent" ToolTip="Refresh apps"
+                                           Command="{Binding RefreshAppAudioSessionsListCommand}" />
+                                <TextBlock Text="Apps" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </DockPanel>
+
+                            <ListBox ItemsSource="{Binding AppAudioSessions}" SelectedItem="{Binding SelectedAppAudioSession, Mode=TwoWay}"
+                                     BorderThickness="0" Background="Transparent">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="2,6">
+                                            <ui:SymbolIcon Symbol="Speaker224" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" MaxWidth="180" />
+                                                <TextBlock Text="{Binding NowPlaying}" FontSize="11" Opacity="0.6" TextWrapping="Wrap" MaxWidth="180"
+                                                           Visibility="{Binding NowPlaying, Converter={StaticResource StringToVisibility}}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </ui:Card>
+
+                    <!-- Mirroring status + volume -->
+                    <StackPanel Grid.Column="1">
+                        <ui:Card Padding="24">
+                            <StackPanel>
+                                <TextBlock Text="Mirror app audio into your mic output" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                <TextBlock TextWrapping="Wrap" Opacity="0.7" Margin="0,0,0,16">
+                                    Pick an app on the left — e.g. Spotify or Chrome — and its audio is mixed
+                                    into the same boosted stream sent to CABLE Input, alongside your voice.
+                                </TextBlock>
+
+                                <StackPanel>
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedAppAudioSession}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock Text="Nothing selected — mic-only output." Opacity="0.6" FontStyle="Italic" />
+                                </StackPanel>
+
+                                <StackPanel>
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedAppAudioSession}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+
+                                    <Grid Margin="0,0,0,16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding SelectedAppAudioSession.DisplayName}" />
+                                            <TextBlock Opacity="0.6" TextWrapping="Wrap" Text="{Binding SelectedAppAudioSession.NowPlaying}"
+                                                       Visibility="{Binding SelectedAppAudioSession.NowPlaying, Converter={StaticResource StringToVisibility}}" />
+                                        </StackPanel>
+                                        <ui:Button Grid.Column="1" Content="Stop mirroring" Icon="{ui:SymbolIcon Prohibited24}"
+                                                   Appearance="Secondary" Command="{Binding StopAppAudioMirroringCommand}" />
+                                    </Grid>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                        <TextBlock Text="Status:" Opacity="0.7" Margin="0,0,6,0" />
+                                        <TextBlock Text="Connected"
+                                                   Visibility="{Binding IsAppAudioActive, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                        <TextBlock Text="Connecting..." Opacity="0.7"
+                                                   Visibility="{Binding IsAppAudioActive, Converter={StaticResource InverseBoolToVisibility}}" />
+                                    </StackPanel>
+
+                                    <TextBlock Text="Volume" Opacity="0.7" Margin="0,0,0,4" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="60" />
+                                        </Grid.ColumnDefinitions>
+                                        <Slider Grid.Column="0" Minimum="0" Maximum="1" TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                                Value="{Binding AppAudioVolume, Mode=TwoWay}" IsMoveToPointEnabled="True" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding AppAudioVolume, StringFormat={}{0:P0}}"
+                                                   VerticalAlignment="Center" HorizontalAlignment="Right" Opacity="0.8" />
+                                    </Grid>
+                                </StackPanel>
+
+                                <TextBlock Text="{Binding AppAudioStatusMessage}" Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                           TextWrapping="Wrap" Margin="0,16,0,0"
+                                           Visibility="{Binding AppAudioStatusMessage, Converter={StaticResource StringToVisibility}}" />
                             </StackPanel>
-
-                            <ui:InfoBar Title="Limiting active" Message="The signal is being softly limited to avoid clipping — consider lowering the gain."
-                                        Severity="Warning" IsOpen="{Binding IsLimiting}" IsClosable="False" Margin="0,20,0,0" />
-                        </StackPanel>
-                    </ui:Card>
-
-                    <ui:Card Margin="0,0,0,10" Padding="24">
-                        <StackPanel>
-                            <Grid Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Bass" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="1" Text="{Binding BassDb, Converter={StaticResource GainDbDisplay}}"
-                                           FontSize="20" FontWeight="SemiBold" Opacity="0.85" VerticalAlignment="Center" />
-                            </Grid>
-
-                            <TextBlock Text="Shapes the low end of your voice (a shelf below ~200 Hz), independent of overall gain."
-                                       Opacity="0.6" TextWrapping="Wrap" Margin="0,0,0,12" />
-
-                            <Slider Minimum="{Binding MinBassDb}" Maximum="{Binding MaxBassDb}"
-                                    TickFrequency="{Binding BassStepDb}" IsSnapToTickEnabled="True"
-                                    Value="{Binding BassDb, Mode=TwoWay}"
-                                    IsMoveToPointEnabled="True" Margin="8,0" />
-
-                            <Grid Margin="0,4,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="-30 dB" Opacity="0.6" HorizontalAlignment="Left" />
-                                <TextBlock Grid.Column="1" Text="0 dB" Opacity="0.6" HorizontalAlignment="Center" />
-                                <TextBlock Grid.Column="2" Text="+30 dB" Opacity="0.6" HorizontalAlignment="Right" />
-                            </Grid>
-
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,0">
-                                <ui:Button Icon="{ui:SymbolIcon Subtract24}" Appearance="Secondary"
-                                           Command="{Binding DecreaseBassCommand}" ToolTip="Decrease 0.5 dB" Margin="0,0,10,0" />
-                                <ui:NumberBox Value="{Binding BassDb, Mode=TwoWay}" Minimum="{Binding MinBassDb}"
-                                              Maximum="{Binding MaxBassDb}" SmallChange="{Binding BassStepDb}"
-                                              Width="120" TextAlignment="Center" />
-                                <ui:Button Icon="{ui:SymbolIcon Add24}" Appearance="Secondary"
-                                           Command="{Binding IncreaseBassCommand}" ToolTip="Increase 0.5 dB" Margin="10,0,10,0" />
-                                <ui:Button Content="Reset" Icon="{ui:SymbolIcon ArrowReset24}"
-                                           Command="{Binding ResetBassCommand}" />
-                            </StackPanel>
-                        </StackPanel>
-                    </ui:Card>
-
-                    <ui:Card Padding="24">
-                        <StackPanel>
-                            <TextBlock Text="Levels" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,16" />
-
-                            <TextBlock Text="Input (before gain)" Opacity="0.7" Margin="0,0,0,4" />
-                            <ProgressBar Value="{Binding InputLevel, Mode=OneWay}" Minimum="0" Maximum="1" Height="10" Margin="0,0,0,16" />
-
-                            <TextBlock Text="Output (after bass + gain)" Opacity="0.7" Margin="0,0,0,4" />
-                            <ProgressBar Value="{Binding OutputLevel, Mode=OneWay}" Minimum="0" Maximum="1" Height="10">
-                                <ProgressBar.Style>
-                                    <Style TargetType="ProgressBar">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsLimiting}" Value="True">
-                                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCautionBrush}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </ProgressBar.Style>
-                            </ProgressBar>
-
-                            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                                       TextWrapping="Wrap" Margin="0,16,0,0"
-                                       Visibility="{Binding StatusMessage, Converter={StaticResource StringToVisibility}}" />
-                        </StackPanel>
-                    </ui:Card>
-                </StackPanel>
-            </ScrollViewer>
-        </Grid>
+                        </ui:Card>
+                    </StackPanel>
+                </Grid>
+                </Grid>
+            </TabItem>
+        </TabControl>
 
         <!-- Settings bar -->
         <ui:Card Grid.Row="2" Margin="20,0,20,16" Padding="16,12">

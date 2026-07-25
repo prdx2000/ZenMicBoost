@@ -88,6 +88,16 @@ CABLE Output.
   dynamics — that's the safety net working as intended, not a bug.
 - Mute toggle, from the main window or the tray icon's context menu, which
   silences the virtual mic without discarding your configured gain.
+- **App Audio** tab: mirror one running app's playback (e.g. Spotify or a
+  browser tab) into the same boosted stream, so people on the other end hear
+  it mixed with your voice. Uses Windows 10 2004+'s per-process WASAPI
+  loopback capture, so it picks up only that app (and its child processes,
+  e.g. a browser's per-tab renderer processes) rather than everything playing
+  on your speakers. A soft limiter on the combined signal prevents clipping
+  when both sources are loud at once. When an app reports "now playing" info
+  via the System Media Transport Controls (the same source as Windows' own
+  volume flyout), its title/artist is shown next to it in the picker. Requires
+  Windows 10 build 19041 or later; the tab explains if your OS is too old.
 - Launch-on-startup and minimize-to-tray toggles; a system tray icon shows
   current gain and offers quick mute/show/exit actions.
 - Fluent Design 2 UI (Mica backdrop, dark/light themes) built with

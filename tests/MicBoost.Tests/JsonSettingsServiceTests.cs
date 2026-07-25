@@ -30,6 +30,8 @@ public class JsonSettingsServiceTests : IDisposable
             LaunchOnStartup = true,
             MinimizeToTray = false,
             Theme = AppTheme.Light,
+            AppAudioProcessName = "spotify.exe",
+            AppAudioVolume = 0.65,
         };
         settings.SetGain("device-123", 4.5);
         settings.SetGain("device-456", -2.0);
@@ -43,6 +45,8 @@ public class JsonSettingsServiceTests : IDisposable
         Assert.Equal(AppTheme.Light, reloaded.Theme);
         Assert.Equal(4.5, reloaded.GetGainOrDefault("device-123"));
         Assert.Equal(-2.0, reloaded.GetGainOrDefault("device-456"));
+        Assert.Equal("spotify.exe", reloaded.AppAudioProcessName);
+        Assert.Equal(0.65, reloaded.AppAudioVolume);
     }
 
     [Fact]

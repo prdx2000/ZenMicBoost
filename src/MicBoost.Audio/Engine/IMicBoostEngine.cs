@@ -28,7 +28,26 @@ public interface IMicBoostEngine : IDisposable
     /// <summary>Raised when the capture or render pipeline fails unexpectedly while running.</summary>
     event EventHandler<Exception>? EngineError;
 
+    /// <summary>Id of the process currently selected for app-audio mirroring, or null if none.</summary>
+    int? AppAudioProcessId { get; }
+
+    /// <summary>True once the app-audio branch is actually capturing (vs. still connecting, or failed).</summary>
+    bool IsAppAudioActive { get; }
+
+    /// <summary>Linear volume (0..1) applied to mirrored app audio before mixing into the output. Settable while running.</summary>
+    double AppAudioVolume { get; set; }
+
+    /// <summary>Raised when app-audio capture fails to start, or stops unexpectedly while running.</summary>
+    event EventHandler<Exception>? AppAudioError;
+
     void Start(string captureDeviceId, double initialGainDb);
 
     void Stop();
+
+    /// <summary>
+    /// Selects which process's audio is mirrored into the output, mixed with the mic. Pass
+    /// null to stop mirroring. Persists across mic switches (<see cref="Start"/>/<see cref="Stop"/>)
+    /// and reconnects automatically once the engine is running again.
+    /// </summary>
+    Task SetAppAudioProcessAsync(int? processId);
 }

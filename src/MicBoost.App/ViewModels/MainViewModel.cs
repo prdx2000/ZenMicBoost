@@ -8,6 +8,7 @@ using MicBoost.App.Services;
 using MicBoost.Audio.Devices;
 using MicBoost.Audio.Dsp;
 using MicBoost.Audio.Engine;
+using MicBoost.Audio.Loopback;
 using MicBoost.Audio.Output;
 using MicBoost.Audio.Settings;
 using Wpf.Ui.Appearance;
@@ -21,11 +22,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly ISettingsService _settingsService;
     private readonly IVirtualCableDetector _cableDetector;
     private readonly IStartupService _startupService;
+    private readonly IAppAudioSessionService _appAudioSessionService;
+    private readonly IMediaSessionInfoService _mediaSessionInfoService;
 
     private AppSettings _settings = new();
     private DispatcherTimer? _meterTimer;
     private DispatcherTimer? _saveTimer;
+    private DispatcherTimer? _appAudioSessionTimer;
     private bool _isLoadingDevice;
+    private bool _isLoadingAppAudioSettings;
     private bool _initialized;
 
     public MainViewModel(
@@ -33,13 +38,17 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         IMicBoostEngine engine,
         ISettingsService settingsService,
         IVirtualCableDetector cableDetector,
-        IStartupService startupService)
+        IStartupService startupService,
+        IAppAudioSessionService appAudioSessionService,
+        IMediaSessionInfoService mediaSessionInfoService)
     {
         _deviceService = deviceService;
         _engine = engine;
         _settingsService = settingsService;
         _cableDetector = cableDetector;
         _startupService = startupService;
+        _appAudioSessionService = appAudioSessionService;
+        _mediaSessionInfoService = mediaSessionInfoService;
     }
 
     public double MinGainDb => GainMath.MinDb;
@@ -57,6 +66,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public bool IsExiting { get; private set; }
 
     public string CableDownloadUrl => VirtualCableLocator.DownloadUrl;
+
+    /// <summary>False on Windows versions older than 10 2004 (build 19041), where the OS has no process-loopback API.</summary>
+    public bool IsAppAudioSupported => ProcessLoopbackCapture.IsSupported;
 
     [ObservableProperty]
     private ObservableCollection<DeviceItemViewModel> devices = new();
@@ -103,6 +115,21 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string? statusMessage;
 
+    [ObservableProperty]
+    private ObservableCollection<AppAudioSessionItemViewModel> appAudioSessions = new();
+
+    [ObservableProperty]
+    private AppAudioSessionItemViewModel? selectedAppAudioSession;
+
+    [ObservableProperty]
+    private double appAudioVolume = 1.0;
+
+    [ObservableProperty]
+    private bool isAppAudioActive;
+
+    [ObservableProperty]
+    private string? appAudioStatusMessage;
+
     public void Initialize()
     {
         if (_initialized)
@@ -132,6 +159,23 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _meterTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
         _meterTimer.Tick += (_, _) => PollMeters();
         _meterTimer.Start();
+
+        if (IsAppAudioSupported)
+        {
+            _isLoadingAppAudioSettings = true;
+            AppAudioVolume = _settings.AppAudioVolume;
+            _isLoadingAppAudioSettings = false;
+            _engine.AppAudioVolume = AppAudioVolume;
+
+            _engine.AppAudioError += (_, ex) => System.Windows.Application.Current.Dispatcher.Invoke(
+                () => AppAudioStatusMessage = $"Couldn't mirror that app's audio: {ex.Message}");
+
+            RefreshAppAudioSessions();
+
+            _appAudioSessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+            _appAudioSessionTimer.Tick += (_, _) => RefreshAppAudioSessions();
+            _appAudioSessionTimer.Start();
+        }
     }
 
     private void RefreshDevices()
@@ -177,6 +221,91 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    private void RefreshAppAudioSessions()
+    {
+        var infos = _appAudioSessionService.GetActiveSessions();
+        var currentIds = infos.Select(i => i.ProcessId).ToHashSet();
+
+        for (var i = AppAudioSessions.Count - 1; i >= 0; i--)
+        {
+            if (!currentIds.Contains(AppAudioSessions[i].ProcessId))
+            {
+                AppAudioSessions.RemoveAt(i);
+            }
+        }
+
+        var existingIds = AppAudioSessions.Select(s => s.ProcessId).ToHashSet();
+        foreach (var info in infos)
+        {
+            if (!existingIds.Contains(info.ProcessId))
+            {
+                AppAudioSessions.Add(new AppAudioSessionItemViewModel(info));
+            }
+        }
+
+        IsAppAudioActive = _engine.IsAppAudioActive;
+        _ = EnrichNowPlayingAsync();
+
+        // If we want to be mirroring a process (by name, since PIDs don't survive a relaunch)
+        // but aren't currently attached to a live session for it, (re)attach to one if it
+        // showed up, or say we're waiting for it — without touching the saved selection, since
+        // this is a transient disconnect, not the user asking to stop.
+        var wantedName = _settings.AppAudioProcessName;
+        if (string.IsNullOrEmpty(wantedName))
+        {
+            return;
+        }
+
+        var stillAttached = SelectedAppAudioSession is not null && currentIds.Contains(SelectedAppAudioSession.ProcessId);
+        if (stillAttached)
+        {
+            return;
+        }
+
+        var match = AppAudioSessions.FirstOrDefault(s => string.Equals(s.ProcessName, wantedName, StringComparison.OrdinalIgnoreCase));
+        if (match is not null)
+        {
+            SelectedAppAudioSession = match;
+        }
+        else
+        {
+            _isLoadingAppAudioSettings = true;
+            SelectedAppAudioSession = null;
+            _isLoadingAppAudioSettings = false;
+            AppAudioStatusMessage = $"Waiting for {wantedName} to play audio...";
+        }
+    }
+
+    private async Task EnrichNowPlayingAsync()
+    {
+        IReadOnlyList<MediaSession> sessions;
+        try
+        {
+            sessions = await _mediaSessionInfoService.GetNowPlayingSessionsAsync();
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        foreach (var item in AppAudioSessions)
+        {
+            var match = sessions.FirstOrDefault(s => IsSameApp(s.SourceAppUserModelId, item.ProcessName));
+            item.NowPlaying = match?.Info.DisplayText();
+        }
+    }
+
+    private static bool IsSameApp(string sourceAppUserModelId, string processName)
+    {
+        if (string.IsNullOrEmpty(sourceAppUserModelId) || string.IsNullOrEmpty(processName))
+        {
+            return false;
+        }
+
+        return sourceAppUserModelId.Contains(processName, StringComparison.OrdinalIgnoreCase)
+            || processName.Contains(sourceAppUserModelId, StringComparison.OrdinalIgnoreCase);
+    }
+
     private void RefreshCableStatus()
     {
         var status = _cableDetector.Detect();
@@ -220,6 +349,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         InputLevel = _engine.InputLevel;
         OutputLevel = _engine.OutputLevel;
         IsLimiting = _engine.IsLimiting;
+        IsAppAudioActive = _engine.IsAppAudioActive;
     }
 
     partial void OnSelectedDeviceChanged(DeviceItemViewModel? value)
@@ -278,6 +408,29 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
 
     partial void OnIsMutedChanged(bool value) => _engine.IsMuted = value;
+
+    partial void OnSelectedAppAudioSessionChanged(AppAudioSessionItemViewModel? value)
+    {
+        if (!_isLoadingAppAudioSettings)
+        {
+            _settings.AppAudioProcessName = value?.ProcessName;
+            DebounceSaveSettings();
+        }
+
+        AppAudioStatusMessage = null;
+        _ = _engine.SetAppAudioProcessAsync(value?.ProcessId);
+    }
+
+    partial void OnAppAudioVolumeChanged(double value)
+    {
+        _engine.AppAudioVolume = value;
+
+        if (!_isLoadingAppAudioSettings)
+        {
+            _settings.AppAudioVolume = value;
+            DebounceSaveSettings();
+        }
+    }
 
     partial void OnLaunchOnStartupChanged(bool value)
     {
@@ -338,6 +491,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private void RecheckCable() => RefreshCableStatus();
 
     [RelayCommand]
+    private void RefreshAppAudioSessionsList() => RefreshAppAudioSessions();
+
+    [RelayCommand]
+    private void StopAppAudioMirroring() => SelectedAppAudioSession = null;
+
+    [RelayCommand]
     private void OpenDownloadPage() => Process.Start(new ProcessStartInfo(CableDownloadUrl) { UseShellExecute = true });
 
     [RelayCommand]
@@ -351,5 +510,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     {
         _meterTimer?.Stop();
         _saveTimer?.Stop();
+        _appAudioSessionTimer?.Stop();
     }
 }

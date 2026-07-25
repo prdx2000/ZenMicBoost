@@ -23,6 +23,17 @@ public sealed class AppSettings
 
     public AppTheme Theme { get; set; } = AppTheme.Dark;
 
+    /// <summary>
+    /// Executable name (e.g. "spotify.exe") of the process to mirror into the output, mixed
+    /// with the mic. Kept by name rather than PID since the PID changes every launch; MicBoost
+    /// reconnects automatically once a process with this name shows up with an audio session.
+    /// Null/empty means app-audio mirroring is off.
+    /// </summary>
+    public string? AppAudioProcessName { get; set; }
+
+    /// <summary>Linear volume (0..1) applied to the mirrored app audio.</summary>
+    public double AppAudioVolume { get; set; } = 1.0;
+
     public double GetGainOrDefault(string deviceId)
         => DeviceGainsDb.TryGetValue(deviceId, out var db) ? db : Dsp.GainMath.DefaultDb;
 
