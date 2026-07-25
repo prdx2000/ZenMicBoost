@@ -24,10 +24,17 @@ public sealed class AppSettings
     public AppTheme Theme { get; set; } = AppTheme.Dark;
 
     /// <summary>
+    /// Master on/off for app-audio mirroring. Kept separate from
+    /// <see cref="AppAudioProcessName"/> so switching it off stops mirroring without
+    /// forgetting which app was chosen — flipping it back on resumes that app.
+    /// </summary>
+    public bool AppAudioEnabled { get; set; } = true;
+
+    /// <summary>
     /// Executable name (e.g. "spotify.exe") of the process to mirror into the output, mixed
     /// with the mic. Kept by name rather than PID since the PID changes every launch; MicBoost
     /// reconnects automatically once a process with this name shows up with an audio session.
-    /// Null/empty means app-audio mirroring is off.
+    /// Null/empty means no app is chosen; see <see cref="AppAudioEnabled"/> for the master switch.
     /// </summary>
     public string? AppAudioProcessName { get; set; }
 

@@ -18,6 +18,21 @@ public class JsonSettingsServiceTests : IDisposable
         Assert.False(settings.LaunchOnStartup);
         Assert.True(settings.MinimizeToTray);
         Assert.Equal(AppTheme.Dark, settings.Theme);
+        Assert.True(settings.AppAudioEnabled);
+    }
+
+    [Fact]
+    public void Load_WhenFilePredatesTheAppAudioToggle_LeavesMirroringEnabled()
+    {
+        // Settings written before AppAudioEnabled existed have a chosen app but no flag;
+        // they must keep mirroring rather than silently switching it off on upgrade.
+        File.WriteAllText(_tempFile, """{"AppAudioProcessName":"spotify.exe"}""");
+        var sut = new JsonSettingsService(_tempFile);
+
+        var settings = sut.Load();
+
+        Assert.True(settings.AppAudioEnabled);
+        Assert.Equal("spotify.exe", settings.AppAudioProcessName);
     }
 
     [Fact]
@@ -30,6 +45,7 @@ public class JsonSettingsServiceTests : IDisposable
             LaunchOnStartup = true,
             MinimizeToTray = false,
             Theme = AppTheme.Light,
+            AppAudioEnabled = false,
             AppAudioProcessName = "spotify.exe",
             AppAudioVolume = 0.65,
         };
@@ -45,6 +61,7 @@ public class JsonSettingsServiceTests : IDisposable
         Assert.Equal(AppTheme.Light, reloaded.Theme);
         Assert.Equal(4.5, reloaded.GetGainOrDefault("device-123"));
         Assert.Equal(-2.0, reloaded.GetGainOrDefault("device-456"));
+        Assert.False(reloaded.AppAudioEnabled);
         Assert.Equal("spotify.exe", reloaded.AppAudioProcessName);
         Assert.Equal(0.65, reloaded.AppAudioVolume);
     }

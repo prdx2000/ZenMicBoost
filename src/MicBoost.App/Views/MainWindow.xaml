@@ -236,8 +236,10 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Apps currently known to have an audio session -->
-                    <ui:Card Grid.Column="0" Margin="0,0,10,0" Padding="16">
+                    <!-- Apps currently known to have an audio session. Greyed out while
+                         mirroring is switched off, so the off state reads unmistakably. -->
+                    <ui:Card Grid.Column="0" Margin="0,0,10,0" Padding="16"
+                             IsEnabled="{Binding IsAppAudioEnabled}">
                         <DockPanel>
                             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                                 <ui:Button DockPanel.Dock="Right" Icon="{ui:SymbolIcon ArrowSync24}"
@@ -268,26 +270,48 @@
                     <StackPanel Grid.Column="1">
                         <ui:Card Padding="24">
                             <StackPanel>
-                                <TextBlock Text="Mirror app audio into your mic output" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Mirror app audio into your mic output"
+                                               FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                    <ui:ToggleSwitch Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center"
+                                                     IsChecked="{Binding IsAppAudioEnabled, Mode=TwoWay}"
+                                                     OnContent="On" OffContent="Off" />
+                                </Grid>
                                 <TextBlock TextWrapping="Wrap" Opacity="0.7" Margin="0,0,0,16">
                                     Pick an app on the left — e.g. Spotify or Chrome — and its audio is mixed
                                     into the same boosted stream sent to CABLE Input, alongside your voice.
                                 </TextBlock>
 
+                                <!-- Off -->
+                                <StackPanel Visibility="{Binding IsAppAudioEnabled, Converter={StaticResource InverseBoolToVisibility}}">
+                                    <TextBlock TextWrapping="Wrap" Opacity="0.6" FontStyle="Italic"
+                                               Text="App audio mirroring is off — only your microphone is sent to CABLE Input." />
+                                </StackPanel>
+
+                                <!-- On, but no app picked yet -->
                                 <StackPanel>
                                     <StackPanel.Style>
                                         <Style TargetType="StackPanel">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding SelectedAppAudioSession}" Value="{x:Null}">
+                                                <MultiDataTrigger>
+                                                    <MultiDataTrigger.Conditions>
+                                                        <Condition Binding="{Binding IsAppAudioEnabled}" Value="True" />
+                                                        <Condition Binding="{Binding SelectedAppAudioSession}" Value="{x:Null}" />
+                                                    </MultiDataTrigger.Conditions>
                                                     <Setter Property="Visibility" Value="Visible" />
-                                                </DataTrigger>
+                                                </MultiDataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </StackPanel.Style>
                                     <TextBlock Text="Nothing selected — mic-only output." Opacity="0.6" FontStyle="Italic" />
                                 </StackPanel>
 
+                                <!-- On, with an app picked. Visible unless either condition fails. -->
                                 <StackPanel>
                                     <StackPanel.Style>
                                         <Style TargetType="StackPanel">
@@ -296,22 +320,19 @@
                                                 <DataTrigger Binding="{Binding SelectedAppAudioSession}" Value="{x:Null}">
                                                     <Setter Property="Visibility" Value="Collapsed" />
                                                 </DataTrigger>
+                                                <DataTrigger Binding="{Binding IsAppAudioEnabled}" Value="False">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
                                             </Style.Triggers>
                                         </Style>
                                     </StackPanel.Style>
 
                                     <Grid Margin="0,0,0,16">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <StackPanel VerticalAlignment="Center">
                                             <TextBlock FontWeight="SemiBold" Text="{Binding SelectedAppAudioSession.DisplayName}" />
                                             <TextBlock Opacity="0.6" TextWrapping="Wrap" Text="{Binding SelectedAppAudioSession.NowPlaying}"
                                                        Visibility="{Binding SelectedAppAudioSession.NowPlaying, Converter={StaticResource StringToVisibility}}" />
                                         </StackPanel>
-                                        <ui:Button Grid.Column="1" Content="Stop mirroring" Icon="{ui:SymbolIcon Prohibited24}"
-                                                   Appearance="Secondary" Command="{Binding StopAppAudioMirroringCommand}" />
                                     </Grid>
 
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">

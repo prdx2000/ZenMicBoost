@@ -90,7 +90,10 @@ CABLE Output.
   silences the virtual mic without discarding your configured gain.
 - **App Audio** tab: mirror one running app's playback (e.g. Spotify or a
   browser tab) into the same boosted stream, so people on the other end hear
-  it mixed with your voice. Uses Windows 10 2004+'s per-process WASAPI
+  it mixed with your voice. A master **On/Off toggle** switches mirroring off
+  entirely — it releases the loopback capture and greys out the app list, but
+  remembers which app you picked, so flipping it back on resumes that app
+  without reselecting it. Uses Windows 10 2004+'s per-process WASAPI
   loopback capture, so it picks up only that app (and its child processes,
   e.g. a browser's per-tab renderer processes) rather than everything playing
   on your speakers. A soft limiter on the combined signal prevents clipping
@@ -144,12 +147,36 @@ machine without installing the .NET runtime first:
 ./publish.ps1
 ```
 
-This writes `publish/win-x64/MicBoost.App.exe` (~72 MB, everything bundled —
+This writes `publish/win-x64/MicBoost.App.exe` (~78 MB, everything bundled —
 just copy that one file and run it). Equivalent manual command:
 
 ```powershell
 dotnet publish src/MicBoost.App/MicBoost.App.csproj -c Release -r win-x64 --self-contained true `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
+```
+
+### Installing to the Start Menu
+
+`publish/` is a gitignored build directory, so a Start Menu shortcut shouldn't
+point into it. To install the app somewhere stable and make it searchable with
+the Windows key:
+
+```powershell
+./publish.ps1 -Install
+```
+
+This copies the build to `%LocalAppData%\Programs\MicBoost\MicBoost.exe` and
+creates `MicBoost.lnk` in the per-user Start Menu (no admin rights needed).
+Once installed, plain `./publish.ps1` runs detect the existing install and
+refresh it automatically, so the Start Menu entry always launches the latest
+build. If the installed app is running, the script closes it first so the exe
+can be replaced.
+
+To uninstall, delete both paths:
+
+```powershell
+Remove-Item "$env:LOCALAPPDATA\Programs\MicBoost" -Recurse
+Remove-Item "$([Environment]::GetFolderPath('Programs'))\MicBoost.lnk"
 ```
 
 ## Tech stack

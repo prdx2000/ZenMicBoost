@@ -31,6 +31,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private DispatcherTimer? _appAudioSessionTimer;
     private bool _isLoadingDevice;
     private bool _isLoadingAppAudioSettings;
+    private bool _isPruningSessions;
     private bool _initialized;
 
     public MainViewModel(
@@ -115,6 +116,14 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string? statusMessage;
 
+    /// <summary>
+    /// Master switch for app-audio mirroring. Turning it off detaches the loopback capture but
+    /// keeps <see cref="SelectedAppAudioSession"/> and the saved app name, so turning it back
+    /// on resumes the same app without having to pick it again.
+    /// </summary>
+    [ObservableProperty]
+    private bool isAppAudioEnabled = true;
+
     [ObservableProperty]
     private ObservableCollection<AppAudioSessionItemViewModel> appAudioSessions = new();
 
@@ -163,6 +172,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (IsAppAudioSupported)
         {
             _isLoadingAppAudioSettings = true;
+            IsAppAudioEnabled = _settings.AppAudioEnabled;
             AppAudioVolume = _settings.AppAudioVolume;
             _isLoadingAppAudioSettings = false;
             _engine.AppAudioVolume = AppAudioVolume;
@@ -226,12 +236,24 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var infos = _appAudioSessionService.GetActiveSessions();
         var currentIds = infos.Select(i => i.ProcessId).ToHashSet();
 
-        for (var i = AppAudioSessions.Count - 1; i >= 0; i--)
+        // Dropping the selected item makes the ListBox push null back into
+        // SelectedAppAudioSession. That's the app going quiet, not the user deselecting it, so
+        // suppress the save — otherwise the remembered app name is wiped and the reattach
+        // below (and after a restart) has nothing to look for.
+        _isPruningSessions = true;
+        try
         {
-            if (!currentIds.Contains(AppAudioSessions[i].ProcessId))
+            for (var i = AppAudioSessions.Count - 1; i >= 0; i--)
             {
-                AppAudioSessions.RemoveAt(i);
+                if (!currentIds.Contains(AppAudioSessions[i].ProcessId))
+                {
+                    AppAudioSessions.RemoveAt(i);
+                }
             }
+        }
+        finally
+        {
+            _isPruningSessions = false;
         }
 
         var existingIds = AppAudioSessions.Select(s => s.ProcessId).ToHashSet();
@@ -251,7 +273,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         // showed up, or say we're waiting for it — without touching the saved selection, since
         // this is a transient disconnect, not the user asking to stop.
         var wantedName = _settings.AppAudioProcessName;
-        if (string.IsNullOrEmpty(wantedName))
+        if (!IsAppAudioEnabled || string.IsNullOrEmpty(wantedName))
         {
             return;
         }
@@ -411,14 +433,43 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     partial void OnSelectedAppAudioSessionChanged(AppAudioSessionItemViewModel? value)
     {
-        if (!_isLoadingAppAudioSettings)
+        if (!_isLoadingAppAudioSettings && !_isPruningSessions)
         {
             _settings.AppAudioProcessName = value?.ProcessName;
             DebounceSaveSettings();
         }
 
         AppAudioStatusMessage = null;
-        _ = _engine.SetAppAudioProcessAsync(value?.ProcessId);
+
+        // While mirroring is switched off we still track the selection (so it's remembered),
+        // but never attach the capture.
+        if (IsAppAudioEnabled)
+        {
+            _ = _engine.SetAppAudioProcessAsync(value?.ProcessId);
+        }
+    }
+
+    partial void OnIsAppAudioEnabledChanged(bool value)
+    {
+        if (!_isLoadingAppAudioSettings)
+        {
+            _settings.AppAudioEnabled = value;
+            DebounceSaveSettings();
+        }
+
+        AppAudioStatusMessage = null;
+
+        if (value)
+        {
+            // Resume the remembered app. If it isn't in the list right now,
+            // RefreshAppAudioSessions reattaches once it starts playing again.
+            _ = _engine.SetAppAudioProcessAsync(SelectedAppAudioSession?.ProcessId);
+        }
+        else
+        {
+            IsAppAudioActive = false;
+            _ = _engine.SetAppAudioProcessAsync(null);
+        }
     }
 
     partial void OnAppAudioVolumeChanged(double value)
@@ -492,9 +543,6 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     [RelayCommand]
     private void RefreshAppAudioSessionsList() => RefreshAppAudioSessions();
-
-    [RelayCommand]
-    private void StopAppAudioMirroring() => SelectedAppAudioSession = null;
 
     [RelayCommand]
     private void OpenDownloadPage() => Process.Start(new ProcessStartInfo(CableDownloadUrl) { UseShellExecute = true });
