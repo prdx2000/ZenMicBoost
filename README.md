@@ -112,7 +112,8 @@ MicBoost.sln
 src/
   MicBoost.Audio/     Audio engine — no UI dependency, unit-testable
     Devices/          WASAPI capture device enumeration + hot-plug notifications
-    Dsp/               dB<->linear gain math, gain/limiter sample provider, bass shelf EQ, level metering
+    Dsp/               dB<->linear gain math, gain/limiter sample provider, bass shelf EQ, level metering,
+                       runtime sample-rate/channel adaptation so mismatched sources share one mix format
     Output/            Virtual cable abstraction (IVirtualOutputDevice) + VB-CABLE detection
     Engine/            Wires capture -> gain -> virtual output together
     Settings/          JSON settings persistence, keyed by device ID

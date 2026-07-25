@@ -25,6 +25,15 @@ public sealed class MicBoostEngine : IMicBoostEngine
     // constant dropouts. Letting it pre-roll first keeps it steady at the target level.
     private const int AppAudioPrerollMs = 150;
 
+    /// <summary>
+    /// The format everything is mixed in, independent of any one source's own format. Deriving
+    /// this from the mic instead (as this used to) forces every other source through the mic's
+    /// format — a 96 kHz mono headset would collapse a mirrored app's 48 kHz stereo music to
+    /// mono, which sounds hollow and boxy. 48 kHz stereo also matches what virtual cables
+    /// typically expose, so the render stage usually needs no conversion either.
+    /// </summary>
+    private static readonly WaveFormat PipelineFormat = WaveFormat.CreateIeeeFloatWaveFormat(48000, 2);
+
     private readonly IVirtualOutputDevice _virtualOutput;
     private readonly object _appAudioLock = new();
 
@@ -128,14 +137,17 @@ public sealed class MicBoostEngine : IMicBoostEngine
             BufferDuration = TimeSpan.FromMilliseconds(500),
         };
 
+        // Meter the mic at its own native format, then convert it into the pipeline format so
+        // the DSP and mixing stages all agree regardless of what the mic reports.
         _preMeter = new LevelMeterSampleProvider(_buffer.ToSampleProvider());
-        _bass = new BassShelfSampleProvider(_preMeter);
+        var micInPipelineFormat = SampleFormatAdapter.Adapt(_preMeter, PipelineFormat);
+        _bass = new BassShelfSampleProvider(micInPipelineFormat);
         _gain = new GainSampleProvider(_bass, initialGainDb);
 
         // Mic audio is always mixer input #1; a mirrored app's audio (if selected) is added
         // as input #2 once its loopback capture connects. The limiter after the mixer guards
         // against two independently near-full-scale sources clipping when summed.
-        _mixer = new MixingSampleProvider(_gain.WaveFormat) { ReadFully = true };
+        _mixer = new MixingSampleProvider(PipelineFormat) { ReadFully = true };
         _mixer.AddMixerInput(_gain);
         _outputLimiter = new SoftLimiterSampleProvider(_mixer);
         _postMeter = new LevelMeterSampleProvider(_outputLimiter);
@@ -211,7 +223,9 @@ public sealed class MicBoostEngine : IMicBoostEngine
             return;
         }
 
-        var format = WaveFormat.CreateIeeeFloatWaveFormat(_mixer.WaveFormat.SampleRate, _mixer.WaveFormat.Channels);
+        // Capture directly in the pipeline format. For a typical app rendering 48 kHz stereo
+        // this is its native format, so its audio reaches the mixer without any conversion.
+        var format = PipelineFormat;
         var capture = new ProcessLoopbackCapture();
         var buffer = new BufferedWaveProvider(format)
         {
