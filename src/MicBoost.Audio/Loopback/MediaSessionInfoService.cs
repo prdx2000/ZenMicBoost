@@ -20,7 +20,7 @@ public sealed class MediaSessionInfoService : IMediaSessionInfoService
         }
         catch (Exception)
         {
-            // No SMTC registry available (very old Windows, or a locked-down system) — no now-playing info.
+            // No SMTC registry available (very old Windows, or a locked-down system).
             return result;
         }
 
@@ -38,7 +38,7 @@ public sealed class MediaSessionInfoService : IMediaSessionInfoService
             }
             catch (Exception)
             {
-                // That session stopped reporting between enumeration and lookup — just skip it.
+                // That session stopped reporting between enumeration and lookup.
             }
         }
 

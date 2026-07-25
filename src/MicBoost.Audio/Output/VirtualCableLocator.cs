@@ -5,9 +5,9 @@ namespace MicBoost.Audio.Output;
 /// <summary>
 /// Locates the installed virtual audio cable's endpoints by friendly name.
 /// VB-CABLE (the default supported driver) installs a playback endpoint named
-/// "CABLE Input (VB-Audio Virtual Cable)" — what MicBoost renders into — and a
-/// matching recording endpoint "CABLE Output (VB-Audio Virtual Cable)" that other
-/// apps (Discord, Zoom, etc.) select as their microphone.
+/// "CABLE Input (VB-Audio Virtual Cable)", which MicBoost renders into, and a matching
+/// recording endpoint "CABLE Output (VB-Audio Virtual Cable)" that other apps
+/// (Discord, Zoom, etc.) select as their microphone.
 /// </summary>
 public static class VirtualCableLocator
 {

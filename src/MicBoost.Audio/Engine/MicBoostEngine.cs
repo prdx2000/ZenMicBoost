@@ -18,19 +18,17 @@ public sealed class MicBoostEngine : IMicBoostEngine
     private const int CaptureBufferMs = 20;
     private const int AppAudioBufferMs = 1000;
 
-    // The app-audio capture and the mic/render pipeline run off independent clocks, so the
-    // jitter buffer between them must hold a cushion. Connecting it to the mixer the instant
-    // capture starts leaves it hovering near empty (measured: ~10ms held), and any scheduling
-    // jitter then drains it to zero — which BufferedWaveProvider fills with silence, audible as
-    // constant dropouts. Letting it pre-roll first keeps it steady at the target level.
+    // App-audio capture and the mic/render pipeline run off independent clocks, so the jitter
+    // buffer between them needs a cushion. Connecting at the instant capture starts leaves it
+    // near empty (measured: ~10ms held) and scheduling jitter drains it to zero, which
+    // BufferedWaveProvider fills with silence: constant dropouts. Pre-rolling holds the level.
     private const int AppAudioPrerollMs = 150;
 
     /// <summary>
     /// The format everything is mixed in, independent of any one source's own format. Deriving
-    /// this from the mic instead (as this used to) forces every other source through the mic's
-    /// format — a 96 kHz mono headset would collapse a mirrored app's 48 kHz stereo music to
-    /// mono, which sounds hollow and boxy. 48 kHz stereo also matches what virtual cables
-    /// typically expose, so the render stage usually needs no conversion either.
+    /// it from the mic forces every other source through the mic's format, so a 96 kHz mono
+    /// headset would collapse a mirrored app's 48 kHz stereo music to mono. 48 kHz stereo also
+    /// matches what virtual cables typically expose, so the render stage rarely converts.
     /// </summary>
     private static readonly WaveFormat PipelineFormat = WaveFormat.CreateIeeeFloatWaveFormat(48000, 2);
 
@@ -219,7 +217,7 @@ public sealed class MicBoostEngine : IMicBoostEngine
 
         if (_mixer is null)
         {
-            // Not running yet (no mic selected) — Start() reconnects once it is.
+            // Not running yet (no mic selected). Start() reconnects once it is.
             return;
         }
 
@@ -277,9 +275,8 @@ public sealed class MicBoostEngine : IMicBoostEngine
         var targetBytes = (int)(format.AverageBytesPerSecond * (AppAudioPrerollMs / 1000.0));
         var deadline = DateTime.UtcNow.AddSeconds(2);
 
-        // A target that never fills means the app is rendering silence — WASAPI delivers nothing
-        // at all in that case — so give up after the deadline and connect anyway rather than
-        // hanging until it happens to play something.
+        // A target that never fills means the app is rendering silence, for which WASAPI delivers
+        // nothing at all. Give up after the deadline and connect anyway rather than hanging.
         while (buffer.BufferedBytes < targetBytes && DateTime.UtcNow < deadline)
         {
             await Task.Delay(10).ConfigureAwait(false);

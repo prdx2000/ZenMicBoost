@@ -237,9 +237,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         var currentIds = infos.Select(i => i.ProcessId).ToHashSet();
 
         // Dropping the selected item makes the ListBox push null back into
-        // SelectedAppAudioSession. That's the app going quiet, not the user deselecting it, so
-        // suppress the save — otherwise the remembered app name is wiped and the reattach
-        // below (and after a restart) has nothing to look for.
+        // SelectedAppAudioSession. That's the app going quiet, not the user deselecting it.
+        // Suppress the save, or the remembered app name is wiped and the reattach below
+        // (and after a restart) has nothing to look for.
         _isPruningSessions = true;
         try
         {
@@ -269,9 +269,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _ = EnrichNowPlayingAsync();
 
         // If we want to be mirroring a process (by name, since PIDs don't survive a relaunch)
-        // but aren't currently attached to a live session for it, (re)attach to one if it
-        // showed up, or say we're waiting for it — without touching the saved selection, since
-        // this is a transient disconnect, not the user asking to stop.
+        // but aren't attached to a live session for it, reattach if one showed up, or say we're
+        // waiting. The saved selection stays put: this is a transient disconnect, not a stop.
         var wantedName = _settings.AppAudioProcessName;
         if (!IsAppAudioEnabled || string.IsNullOrEmpty(wantedName))
         {

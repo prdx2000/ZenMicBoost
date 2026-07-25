@@ -38,7 +38,7 @@ public sealed class JsonSettingsService : ISettingsService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
-            // Corrupt or inaccessible settings file — start fresh rather than crashing at launch.
+            // Corrupt or inaccessible settings file. Start fresh rather than crashing at launch.
             return new AppSettings();
         }
     }

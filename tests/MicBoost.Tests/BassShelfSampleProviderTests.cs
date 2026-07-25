@@ -75,8 +75,8 @@ public class BassShelfSampleProviderTests
         var boostedSut = new BassShelfSampleProvider(new SineSampleProvider(80f), initialBassDb: BassMath.MaxDb);
         var boostedRms = MeasureSteadyStateRms(boostedSut, 1000, 4000);
 
-        // Deep in the shelf band (well below the ~200 Hz cutoff), gain should approach the
-        // configured linear gain at max boost — assert it's substantially louder.
+        // Deep in the shelf band (well below the ~200 Hz cutoff), gain approaches the configured
+        // linear gain at max boost, so assert it's substantially louder.
         var ratio = boostedRms / flatRms;
         Assert.True(ratio > 2.5, $"Expected boosted low-frequency RMS to be notably louder, ratio was {ratio}");
     }

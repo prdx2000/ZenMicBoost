@@ -103,7 +103,7 @@ public sealed class TrayIconService : ITrayIconService
             _gainItem.Text = GainText();
         }
 
-        SetTooltip($"MicBoost — {GainText()}");
+        SetTooltip($"MicBoost: {GainText()}");
     }
 
     private void UpdateMuteState()

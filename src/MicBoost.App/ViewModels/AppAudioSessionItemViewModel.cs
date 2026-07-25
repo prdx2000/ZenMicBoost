@@ -19,7 +19,7 @@ public sealed partial class AppAudioSessionItemViewModel : ObservableObject
 
     public string DisplayName { get; }
 
-    /// <summary>"Title — Artist" from SMTC if this process is currently reporting one, else null.</summary>
+    /// <summary>"Title - Artist" from SMTC if this process is currently reporting one, else null.</summary>
     [ObservableProperty]
     private string? nowPlaying;
 }

@@ -138,7 +138,7 @@
                                                    Command="{Binding ResetGainCommand}" />
                                     </StackPanel>
 
-                                    <ui:InfoBar Title="Limiting active" Message="The signal is being softly limited to avoid clipping — consider lowering the gain."
+                                    <ui:InfoBar Title="Limiting active" Message="The signal is being softly limited to avoid clipping. Consider lowering the gain."
                                                 Severity="Warning" IsOpen="{Binding IsLimiting}" IsClosable="False" Margin="0,20,0,0" />
                                 </StackPanel>
                             </ui:Card>
@@ -236,8 +236,7 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Apps currently known to have an audio session. Greyed out while
-                         mirroring is switched off, so the off state reads unmistakably. -->
+                    <!-- Apps currently known to have an audio session -->
                     <ui:Card Grid.Column="0" Margin="0,0,10,0" Padding="16"
                              IsEnabled="{Binding IsAppAudioEnabled}">
                         <DockPanel>
@@ -282,14 +281,14 @@
                                                      OnContent="On" OffContent="Off" />
                                 </Grid>
                                 <TextBlock TextWrapping="Wrap" Opacity="0.7" Margin="0,0,0,16">
-                                    Pick an app on the left — e.g. Spotify or Chrome — and its audio is mixed
+                                    Pick an app on the left, such as Spotify or Chrome, and its audio is mixed
                                     into the same boosted stream sent to CABLE Input, alongside your voice.
                                 </TextBlock>
 
                                 <!-- Off -->
                                 <StackPanel Visibility="{Binding IsAppAudioEnabled, Converter={StaticResource InverseBoolToVisibility}}">
                                     <TextBlock TextWrapping="Wrap" Opacity="0.6" FontStyle="Italic"
-                                               Text="App audio mirroring is off — only your microphone is sent to CABLE Input." />
+                                               Text="App audio mirroring is off. Only your microphone is sent to CABLE Input." />
                                 </StackPanel>
 
                                 <!-- On, but no app picked yet -->
@@ -308,10 +307,10 @@
                                             </Style.Triggers>
                                         </Style>
                                     </StackPanel.Style>
-                                    <TextBlock Text="Nothing selected — mic-only output." Opacity="0.6" FontStyle="Italic" />
+                                    <TextBlock Text="Nothing selected. Mic-only output." Opacity="0.6" FontStyle="Italic" />
                                 </StackPanel>
 
-                                <!-- On, with an app picked. Visible unless either condition fails. -->
+                                <!-- On, with an app picked -->
                                 <StackPanel>
                                     <StackPanel.Style>
                                         <Style TargetType="StackPanel">

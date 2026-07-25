@@ -26,7 +26,7 @@ public sealed class AppSettings
     /// <summary>
     /// Master on/off for app-audio mirroring. Kept separate from
     /// <see cref="AppAudioProcessName"/> so switching it off stops mirroring without
-    /// forgetting which app was chosen — flipping it back on resumes that app.
+    /// forgetting which app was chosen. Flipping it back on resumes that app.
     /// </summary>
     public bool AppAudioEnabled { get; set; } = true;
 

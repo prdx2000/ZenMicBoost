@@ -25,8 +25,8 @@ public sealed class AudioDeviceService : IAudioDeviceService, IMMNotificationCli
 
         var result = new List<AudioDeviceInfo>();
 
-        // Exclude the virtual cable's own recording endpoint — it's the output of this
-        // app's pipeline, not a physical mic that makes sense to select as a source.
+        // Exclude the virtual cable's own recording endpoint. It's the output of this app's
+        // pipeline, not a physical mic that makes sense to select as a source.
         foreach (var device in _enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active))
         {
             if (!VirtualCableLocator.IsVirtualCableDevice(device.FriendlyName))
@@ -79,7 +79,7 @@ public sealed class AudioDeviceService : IAudioDeviceService, IMMNotificationCli
         _enumerator.Dispose();
     }
 
-    // IMMNotificationClient — any change to a capture endpoint re-raises DevicesChanged.
+    // IMMNotificationClient: any change to a capture endpoint re-raises DevicesChanged.
     // Consumers re-enumerate via GetCaptureDevices() rather than trying to diff here.
 
     void IMMNotificationClient.OnDeviceStateChanged(string deviceId, DeviceState newState)

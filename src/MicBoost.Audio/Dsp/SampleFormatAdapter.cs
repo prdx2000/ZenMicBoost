@@ -7,9 +7,9 @@ namespace MicBoost.Audio.Dsp;
 /// Adapts an arbitrary sample stream to a target sample rate and channel count at runtime.
 ///
 /// Sources in this app rarely agree on a format: a headset mic might capture 96 kHz mono while
-/// the app being mirrored renders 48 kHz stereo. Rather than forcing every source into whichever
-/// format one of them happens to use — which collapses stereo music to mono and sounds hollow —
-/// each source is converted into a common pipeline format through here.
+/// the app being mirrored renders 48 kHz stereo. Forcing every source into whichever format one
+/// of them happens to use collapses stereo music to mono, so each source is converted into a
+/// common pipeline format through here instead.
 /// </summary>
 public static class SampleFormatAdapter
 {
@@ -49,7 +49,7 @@ public static class SampleFormatAdapter
             (1, 2) => new MonoToStereoSampleProvider(source),
             (2, 1) => new StereoToMonoSampleProvider(source),
 
-            // Anything more exotic (surround capture, etc.) — map the first target-many channels
+            // Anything more exotic (surround capture, etc.): map the first target-many channels
             // straight through, which keeps the front pair for the usual 5.1/7.1 case.
             _ => new MultiplexingSampleProvider(new[] { source }, targetChannels),
         };

@@ -24,7 +24,7 @@ public sealed class AppAudioSessionService : IAppAudioSessionService
         }
         catch (Exception)
         {
-            // No default playback device (e.g. all output devices disabled) — nothing to list.
+            // No default playback device (e.g. all output devices disabled).
             return result;
         }
 
@@ -67,7 +67,7 @@ public sealed class AppAudioSessionService : IAppAudioSessionService
         }
         catch (Exception)
         {
-            // Process exited between enumeration and lookup — just skip it.
+            // Process exited between enumeration and lookup.
             return null;
         }
     }
@@ -81,7 +81,7 @@ public sealed class AppAudioSessionService : IAppAudioSessionService
         }
         catch (Exception)
         {
-            // Denied for elevated/protected processes, or a bitness mismatch — fall back to the process name.
+            // Denied for elevated/protected processes, or a bitness mismatch. Use the process name.
             return null;
         }
     }

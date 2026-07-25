@@ -11,8 +11,8 @@ namespace MicBoost.Audio.Loopback;
 /// (<c>VAD\Process_Loopback</c>), available since Windows 10 build 19041 (2004). Unlike
 /// <see cref="NAudio.Wave.WasapiLoopbackCapture"/>, which captures a whole physical render
 /// endpoint, this captures only the audio rendered by one process and its child process
-/// tree — e.g. selecting Chrome's main process also picks up audio from its renderer/GPU
-/// child processes, which is where a played-back tab's audio actually comes from.
+/// tree. Selecting Chrome's main process therefore also picks up audio from its
+/// renderer/GPU child processes, which is where a played-back tab's audio comes from.
 ///
 /// NAudio 2.3.0 already ships the low-level COM interop pieces this needs
 /// (<see cref="IActivateAudioInterfaceCompletionHandler"/>, <see cref="AudioClient"/>'s
@@ -26,11 +26,10 @@ public sealed class ProcessLoopbackCapture : IProcessLoopbackCapture
     private const int ProcessLoopbackModeIncludeTargetProcessTree = 0;
     private const ushort VT_BLOB = 65;
 
-    // 200ms of headroom in WASAPI's own engine-side buffer, on top of the jitter buffer this
-    // class feeds downstream. This thread isn't scheduled as reliably as the mic's WasapiCapture
-    // thread (see MMCSS registration below), so extra buffer here is cheap insurance against
-    // dropped packets under momentary CPU contention — latency doesn't matter for background
-    // app audio the way it does for live voice.
+    // 200ms of headroom in WASAPI's engine-side buffer, on top of the jitter buffer this class
+    // feeds downstream. This thread isn't scheduled as reliably as the mic's WasapiCapture thread
+    // (see MMCSS registration below), and latency matters less for background app audio than for
+    // live voice, so the extra buffer is cheap insurance against dropped packets.
     private const long BufferDurationHns = 2_000_000;
 
     /// <summary>True on Windows 10 2004 (build 19041) or later, where process-loopback capture exists.</summary>
@@ -89,9 +88,9 @@ public sealed class ProcessLoopbackCapture : IProcessLoopbackCapture
         _stopRequested = true;
         _bufferReadyEvent?.Set();
 
-        // CaptureError can be handled by a subscriber that calls back into Stop() from the
-        // capture thread itself (mid-exception, before this thread's own run loop returns) —
-        // joining in that case would be a self-join, so skip it; the thread is already winding down.
+        // A CaptureError subscriber can call back into Stop() from the capture thread itself,
+        // mid-exception, before that thread's run loop returns. Joining would self-deadlock,
+        // and the thread is already winding down, so skip it.
         if (_captureThread is not null && Thread.CurrentThread != _captureThread)
         {
             _captureThread.Join(1000);
@@ -110,12 +109,9 @@ public sealed class ProcessLoopbackCapture : IProcessLoopbackCapture
 
     private void CaptureThreadProc()
     {
-        // Without this, this thread competes for CPU time on equal footing with everything else
-        // on the system, and under any real load (the mixed-in app's own rendering, a game, disk
-        // I/O, whatever) it can get delayed past WASAPI's buffer deadline — which sounds exactly
-        // like dropped/glitchy audio. MMCSS is the standard fix real-time audio threads use for
-        // this (the mic's WasapiCapture gets an equivalent boost internally); "Pro Audio" is the
-        // built-in task category meant for this.
+        // Without an MMCSS boost this thread competes for CPU on equal footing with everything
+        // else, and under real load it gets delayed past WASAPI's buffer deadline, which sounds
+        // like glitchy audio. The mic's WasapiCapture gets an equivalent boost internally.
         var mmcssHandle = NativeMethods.AvSetMmThreadCharacteristics("Pro Audio", out _);
 
         try
@@ -157,7 +153,7 @@ public sealed class ProcessLoopbackCapture : IProcessLoopbackCapture
             }
             catch (Exception)
             {
-                // Already torn down (e.g. target process exited) — nothing more to clean up here.
+                // Already torn down (e.g. target process exited).
             }
 
             RevertMmcss(mmcssHandle);

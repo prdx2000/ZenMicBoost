@@ -1,7 +1,7 @@
 # MicBoost
 
 A Windows desktop app that gives you a reliable, system-wide microphone gain
-control from **-30 dB to +30 dB** — for the many mic/driver combos where
+control from **-30 dB to +30 dB**, for the many mic/driver combos where
 Windows' built-in "Microphone Boost" slider is missing, capped too low, or
 just doesn't work.
 
@@ -9,7 +9,7 @@ just doesn't work.
 
 Windows exposes microphone boost as an optional driver feature
 (`IAudioEndpointVolume` / mixer "Boost" control). Whether it's available at
-all, and how much boost it offers, is entirely up to the driver — a lot of
+all, and how much boost it offers, is entirely up to the driver. A lot of
 USB mics, headsets, and onboard audio chips either don't expose it, or cap it
 well below what you'd actually want. There's no reliable, driver-independent
 way to turn a quiet mic up (or a hot mic down) for every app on the system.
@@ -37,15 +37,15 @@ boosted signal to other apps. The supported/default option is
 
 1. Download VB-CABLE from https://vb-audio.com/Cable/
 2. Run the installer as Administrator, then reboot if prompted.
-3. That's it — no configuration needed. VB-CABLE installs two audio
+3. That's it, no configuration needed. VB-CABLE installs two audio
    endpoints:
-   - **CABLE Input (VB-Audio Virtual Cable)** — a playback device. This is
+   - **CABLE Input (VB-Audio Virtual Cable)**, a playback device. This is
      what MicBoost renders your boosted mic audio into.
-   - **CABLE Output (VB-Audio Virtual Cable)** — a recording device. This is
+   - **CABLE Output (VB-Audio Virtual Cable)**, a recording device. This is
      what other apps select as their "microphone".
 
 If MicBoost doesn't detect VB-CABLE, it shows a setup screen with a download
-link and a "Recheck" button instead of failing silently — install the driver
+link and a "Recheck" button instead of failing silently. Install the driver
 and click Recheck.
 
 The output stage sits behind an `IVirtualOutputDevice` interface
@@ -59,7 +59,7 @@ Once MicBoost is running with a mic selected:
 1. Open your app's audio/microphone settings.
 2. Set the input/microphone device to **CABLE Output (VB-Audio Virtual
    Cable)**.
-3. Speak — the level you hear on the other end reflects your physical mic
+3. Speak. The level you hear on the other end reflects your physical mic
    plus MicBoost's gain, not the raw driver signal.
 
 You can leave MicBoost's own physical mic *unselected* everywhere else; only
@@ -68,13 +68,13 @@ CABLE Output.
 
 ## Features
 
-- Lists every capture (microphone) device on the system, live — plugging or
+- Lists every capture (microphone) device on the system, live. Plugging or
   unplugging a mic updates the list automatically.
 - Per-mic gain from **-30 dB to +30 dB** in 0.5 dB steps (slider, numeric
   entry, and +/- buttons), defaulting to 0 dB for any mic seen for the first
   time.
 - Per-mic **bass** control (-30 dB to +30 dB, same step size), a low-shelf
-  filter below ~200 Hz — independent of overall gain, so you can warm up or
+  filter below ~200 Hz, independent of overall gain, so you can warm up or
   thin out your voice without changing its loudness.
 - Gain is persisted **per physical device ID** (not by name, since names can
   duplicate or change) in `%AppData%/MicBoost/settings.json`, so switching
@@ -82,16 +82,16 @@ CABLE Output.
 - Real-time before/after level meters (input vs. output-after-gain), plus a
   visual + text cue when the limiter is actively clamping the signal.
 - A soft-knee limiter (tanh saturation above ~-0.18 dBFS) so pushing gain
-  hard never produces harsh digital clipping — it asymptotically approaches
+  hard never produces harsh digital clipping. It asymptotically approaches
   full scale instead of hard-clipping. Note that with up to +30 dB of gain
   available, extreme settings will engage the limiter heavily and compress
-  dynamics — that's the safety net working as intended, not a bug.
+  dynamics. That's the safety net working as intended, not a bug.
 - Mute toggle, from the main window or the tray icon's context menu, which
   silences the virtual mic without discarding your configured gain.
 - **App Audio** tab: mirror one running app's playback (e.g. Spotify or a
   browser tab) into the same boosted stream, so people on the other end hear
   it mixed with your voice. A master **On/Off toggle** switches mirroring off
-  entirely — it releases the loopback capture and greys out the app list, but
+  entirely. It releases the loopback capture and greys out the app list, but
   remembers which app you picked, so flipping it back on resumes that app
   without reselecting it. Uses Windows 10 2004+'s per-process WASAPI
   loopback capture, so it picks up only that app (and its child processes,
@@ -113,7 +113,7 @@ CABLE Output.
 ```
 MicBoost.sln
 src/
-  MicBoost.Audio/     Audio engine — no UI dependency, unit-testable
+  MicBoost.Audio/     Audio engine, no UI dependency, unit-testable
     Devices/          WASAPI capture device enumeration + hot-plug notifications
     Dsp/               dB<->linear gain math, gain/limiter sample provider, bass shelf EQ, level metering,
                        runtime sample-rate/channel adaptation so mismatched sources share one mix format
@@ -147,7 +147,7 @@ machine without installing the .NET runtime first:
 ./publish.ps1
 ```
 
-This writes `publish/win-x64/MicBoost.App.exe` (~78 MB, everything bundled —
+This writes `publish/win-x64/MicBoost.App.exe` (~78 MB, everything bundled;
 just copy that one file and run it). Equivalent manual command:
 
 ```powershell
@@ -195,6 +195,6 @@ Remove-Item "$([Environment]::GetFolderPath('Programs'))\MicBoost.lnk"
 
 ## Non-goals
 
-- No custom kernel-mode audio driver — MicBoost relies on an existing
+- No custom kernel-mode audio driver. MicBoost relies on an existing
   user-mode virtual cable driver (VB-CABLE by default).
 - Windows-only; WASAPI has no cross-platform equivalent.
