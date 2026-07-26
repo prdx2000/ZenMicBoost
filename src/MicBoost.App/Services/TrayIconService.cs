@@ -28,7 +28,7 @@ public sealed class TrayIconService : ITrayIconService
 
         var menu = new ContextMenuStrip();
 
-        var showItem = new ToolStripMenuItem("Show MicBoost", null, (_, _) => ShowWindow());
+        var showItem = new ToolStripMenuItem("Show MicBoost", null, (_, _) => ShowMainWindow());
         showItem.Font = new System.Drawing.Font(showItem.Font, System.Drawing.FontStyle.Bold);
         menu.Items.Add(showItem);
         menu.Items.Add(new ToolStripSeparator());
@@ -52,7 +52,14 @@ public sealed class TrayIconService : ITrayIconService
             Text = "MicBoost",
             ContextMenuStrip = menu,
         };
-        _notifyIcon.DoubleClick += (_, _) => ShowWindow();
+        // Left-click restores, matching what most tray apps do. Right-click opens the menu.
+        _notifyIcon.MouseClick += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                ShowMainWindow();
+            }
+        };
 
         _viewModel.PropertyChanged += (_, e) =>
         {
@@ -81,16 +88,21 @@ public sealed class TrayIconService : ITrayIconService
         _notifyIcon.Text = text.Length > 63 ? text[..63] : text;
     }
 
-    private void ShowWindow()
+    public void ShowMainWindow()
     {
+        _window ??= Application.Current.MainWindow;
         if (_window is null)
         {
             return;
         }
 
+        // After a --minimized start the window has never been shown and has no HWND yet;
+        // Show() creates it. WindowState is reset too, in case it was minimized rather than hidden.
         _window.Show();
         _window.WindowState = WindowState.Normal;
         _window.Activate();
+        _window.Topmost = true;
+        _window.Topmost = false;
     }
 
     private string GainText() =>

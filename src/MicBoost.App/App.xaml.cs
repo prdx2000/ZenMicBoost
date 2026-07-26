@@ -14,11 +14,34 @@ namespace MicBoost.App;
 
 public partial class App : System.Windows.Application
 {
+    // Session-scoped, so a second sign-in gets its own instance.
+    private const string InstanceMutexName = @"Local\MicBoost.SingleInstance";
+    private const string ShowWindowSignalName = @"Local\MicBoost.ShowWindow";
+
     private IHost? _host;
+    private Mutex? _instanceMutex;
+    private EventWaitHandle? _showWindowSignal;
+    private CancellationTokenSource? _signalListenerCts;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Launching MicBoost while it's already running (typically from the Start Menu, while an
+        // autostarted copy sits in the tray) used to start a second instance. Both then fought
+        // over the mic and the virtual cable, and neither tray icon opened the window you wanted.
+        _instanceMutex = new Mutex(initiallyOwned: true, InstanceMutexName, out var isOnlyInstance);
+        if (!isOnlyInstance)
+        {
+            if (EventWaitHandle.TryOpenExisting(ShowWindowSignalName, out var running))
+            {
+                running.Set();
+                running.Dispose();
+            }
+
+            Shutdown();
+            return;
+        }
 
         _host = Host.CreateDefaultBuilder()
             .ConfigureServices(ConfigureServices)
@@ -40,10 +63,38 @@ public partial class App : System.Windows.Application
         {
             window.Show();
         }
+
+        ListenForShowWindowRequests(trayIconService);
+    }
+
+    /// <summary>
+    /// Watches for a later launch signalling that the user wants the window, and surfaces it.
+    /// </summary>
+    private void ListenForShowWindowRequests(ITrayIconService trayIconService)
+    {
+        _showWindowSignal = new EventWaitHandle(false, EventResetMode.AutoReset, ShowWindowSignalName);
+        _signalListenerCts = new CancellationTokenSource();
+        var token = _signalListenerCts.Token;
+
+        _ = Task.Run(
+            () =>
+            {
+                while (!token.IsCancellationRequested)
+                {
+                    // Timed wait rather than an indefinite one, so exiting doesn't strand this thread.
+                    if (_showWindowSignal.WaitOne(TimeSpan.FromMilliseconds(500)))
+                    {
+                        Dispatcher.Invoke(trayIconService.ShowMainWindow);
+                    }
+                }
+            },
+            token);
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _signalListenerCts?.Cancel();
+
         if (_host is not null)
         {
             var viewModel = _host.Services.GetRequiredService<MainViewModel>();
@@ -53,6 +104,10 @@ public partial class App : System.Windows.Application
             _host.StopAsync().GetAwaiter().GetResult();
             _host.Dispose();
         }
+
+        _signalListenerCts?.Dispose();
+        _showWindowSignal?.Dispose();
+        _instanceMutex?.Dispose();
 
         base.OnExit(e);
     }
