@@ -40,7 +40,11 @@ boosted signal to other apps. The supported/default option is
 3. That's it, no configuration needed. VB-CABLE installs two audio
    endpoints:
    - **CABLE Input (VB-Audio Virtual Cable)**, a playback device. This is
-     what MicBoost renders your boosted mic audio into.
+     what MicBoost renders your boosted mic audio into. MicBoost opens it in
+     exclusive mode so screen-share audio capture (e.g. Discord streaming a
+     whole screen) can't pick your mic up a second time. Keep "Allow
+     applications to take exclusive control" enabled in its Windows sound
+     properties (the default); otherwise MicBoost falls back to shared mode.
    - **CABLE Output (VB-Audio Virtual Cable)**, a recording device. This is
      what other apps select as their "microphone".
 
