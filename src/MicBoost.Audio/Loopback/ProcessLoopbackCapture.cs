@@ -111,7 +111,7 @@ public sealed class ProcessLoopbackCapture : IProcessLoopbackCapture
     {
         // Without an MMCSS boost this thread competes for CPU on equal footing with everything
         // else, and under real load it gets delayed past WASAPI's buffer deadline, which sounds
-        // like glitchy audio. The mic's WasapiCapture gets an equivalent boost internally.
+        // like glitchy audio. MicBoostEngine gives the mic and render threads the same boost.
         var mmcssHandle = NativeMethods.AvSetMmThreadCharacteristics("Pro Audio", out _);
 
         try

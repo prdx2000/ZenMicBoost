@@ -54,6 +54,9 @@ public sealed class MicBoostEngine : IMicBoostEngine
     public MicBoostEngine(IVirtualOutputDevice virtualOutput)
     {
         _virtualOutput = virtualOutput ?? throw new ArgumentNullException(nameof(virtualOutput));
+
+        // MicBoost mostly runs hidden in the tray, which is exactly when Windows throttles it.
+        AudioScheduling.DisableProcessPowerThrottling();
     }
 
     public bool IsRunning => _capture is not null;
@@ -155,7 +158,7 @@ public sealed class MicBoostEngine : IMicBoostEngine
 
         try
         {
-            _virtualOutput.Start(_postMeter);
+            _virtualOutput.Start(new ProAudioThreadSampleProvider(_postMeter));
             _capture.StartRecording();
         }
         catch (Exception)
@@ -314,7 +317,11 @@ public sealed class MicBoostEngine : IMicBoostEngine
     }
 
     private void OnDataAvailable(object? sender, WaveInEventArgs e)
-        => _buffer?.AddSamples(e.Buffer, 0, e.BytesRecorded);
+    {
+        // Raised on NAudio's capture thread, which it never registers with MMCSS itself.
+        AudioScheduling.EnsureCurrentThreadIsProAudio();
+        _buffer?.AddSamples(e.Buffer, 0, e.BytesRecorded);
+    }
 
     private void OnRecordingStopped(object? sender, StoppedEventArgs e)
     {
@@ -328,5 +335,24 @@ public sealed class MicBoostEngine : IMicBoostEngine
     {
         Stop();
         _virtualOutput.Dispose();
+    }
+
+    /// <summary>
+    /// Pass-through whose only job is to register the output's render thread (owned by NAudio,
+    /// which never registers it with MMCSS) on the first read it makes.
+    /// </summary>
+    private sealed class ProAudioThreadSampleProvider : ISampleProvider
+    {
+        private readonly ISampleProvider _source;
+
+        public ProAudioThreadSampleProvider(ISampleProvider source) => _source = source;
+
+        public WaveFormat WaveFormat => _source.WaveFormat;
+
+        public int Read(float[] buffer, int offset, int count)
+        {
+            AudioScheduling.EnsureCurrentThreadIsProAudio();
+            return _source.Read(buffer, offset, count);
+        }
     }
 }
