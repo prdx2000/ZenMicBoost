@@ -25,8 +25,18 @@ public interface IMicBoostEngine : IDisposable
     /// <summary>Peak output level (0..1+) after gain and limiting.</summary>
     float OutputLevel { get; }
 
-    /// <summary>Raised when the capture or render pipeline fails unexpectedly while running.</summary>
+    /// <summary>
+    /// Raised when the capture or render pipeline fails unexpectedly while running. Raised on an
+    /// audio thread: handlers must not block it (marshal asynchronously, never Dispatcher.Invoke).
+    /// </summary>
     event EventHandler<Exception>? EngineError;
+
+    /// <summary>
+    /// While running: how long since audio last moved through the pipeline (the older of the last
+    /// mic packet and the last render read). Null when stopped. A stream can stall silently, with
+    /// no error, after device or session changes, so this is what a watchdog checks.
+    /// </summary>
+    TimeSpan? TimeSinceLastAudio { get; }
 
     /// <summary>Id of the process currently selected for app-audio mirroring, or null if none.</summary>
     int? AppAudioProcessId { get; }

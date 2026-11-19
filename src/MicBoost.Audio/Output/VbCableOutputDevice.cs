@@ -26,6 +26,8 @@ public sealed class VbCableOutputDevice : IVirtualOutputDevice
 
     public string? DeviceName => _renderDevice?.FriendlyName;
 
+    public event EventHandler<Exception>? Failed;
+
     public void Start(ISampleProvider source)
     {
         Stop();
@@ -38,6 +40,7 @@ public sealed class VbCableOutputDevice : IVirtualOutputDevice
 
         _renderDevice = device;
         _output = CreateOutput(device, source);
+        _output.PlaybackStopped += OnPlaybackStopped;
         _output.Play();
     }
 
@@ -69,8 +72,21 @@ public sealed class VbCableOutputDevice : IVirtualOutputDevice
         return shared;
     }
 
+    private void OnPlaybackStopped(object? sender, StoppedEventArgs e)
+    {
+        if (e.Exception is not null)
+        {
+            Failed?.Invoke(this, e.Exception);
+        }
+    }
+
     public void Stop()
     {
+        if (_output is not null)
+        {
+            _output.PlaybackStopped -= OnPlaybackStopped;
+        }
+
         _output?.Stop();
         _output?.Dispose();
         _output = null;

@@ -29,7 +29,15 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private DispatcherTimer? _meterTimer;
     private DispatcherTimer? _saveTimer;
     private DispatcherTimer? _appAudioSessionTimer;
+    private DispatcherTimer? _deviceRefreshTimer;
+    private DispatcherTimer? _watchdogTimer;
+    private int _restartAttempts;
+    private long _nextRestartTicks;
+    private long _engineStartedTicks;
     private bool _isLoadingDevice;
+
+    // A running stream that has moved no audio for this long is treated as dead and restarted.
+    private static readonly TimeSpan StallThreshold = TimeSpan.FromSeconds(5);
     private bool _isLoadingAppAudioSettings;
     private bool _isPruningSessions;
     private bool _initialized;
@@ -160,10 +168,35 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         LaunchOnStartup = _startupService.IsEnabled;
         IsDarkTheme = _settings.Theme == AppTheme.Dark;
 
-        _deviceService.DevicesChanged += (_, _) => System.Windows.Application.Current.Dispatcher.Invoke(RefreshDevices);
+        // DevicesChanged is raised from Windows' IMMNotificationClient callback thread. That thread
+        // must never block: a synchronous Dispatcher.Invoke here deadlocked MicBoost, because the
+        // UI thread's RefreshDevices calls back into the same audio device API, which waits for
+        // the blocked callback to return. The UI thread then hung for good (the window never
+        // opened again) and the dead stream was never restarted (silent mic). So: post
+        // asynchronously, and debounce, since one plug/unplug fires a burst of notifications.
+        _deviceRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+        _deviceRefreshTimer.Tick += (_, _) =>
+        {
+            _deviceRefreshTimer!.Stop();
+            RefreshDevices();
+            RefreshCableStatus();
+        };
+        _deviceService.DevicesChanged += (_, _) => PostToUi(() =>
+        {
+            _deviceRefreshTimer!.Stop();
+            _deviceRefreshTimer.Start();
+        });
+
+        // Raised on an audio thread when the mic or cable stream dies (device invalidated, audio
+        // service restart, session change). Nothing handled this before, so the mic stayed silent.
+        _engine.EngineError += (_, ex) => PostToUi(() => HandleEngineFailure(ex.Message));
 
         RefreshCableStatus();
         RefreshDevices();
+
+        _watchdogTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _watchdogTimer.Tick += (_, _) => RunWatchdog();
+        _watchdogTimer.Start();
 
         _meterTimer = new DispatcherTimer(DispatcherPriority.Render) { Interval = TimeSpan.FromMilliseconds(33) };
         _meterTimer.Tick += (_, _) => PollMeters();
@@ -177,7 +210,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _isLoadingAppAudioSettings = false;
             _engine.AppAudioVolume = AppAudioVolume;
 
-            _engine.AppAudioError += (_, ex) => System.Windows.Application.Current.Dispatcher.Invoke(
+            _engine.AppAudioError += (_, ex) => PostToUi(
                 () => AppAudioStatusMessage = $"Couldn't mirror that app's audio: {ex.Message}");
 
             RefreshAppAudioSessions();
@@ -185,6 +218,75 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _appAudioSessionTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
             _appAudioSessionTimer.Tick += (_, _) => RefreshAppAudioSessions();
             _appAudioSessionTimer.Start();
+        }
+    }
+
+    /// <summary>
+    /// Queues work on the UI thread without waiting for it. Use this for every event raised on
+    /// an audio or COM callback thread; blocking those threads on the UI deadlocks the app.
+    /// </summary>
+    private static void PostToUi(Action action)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null || dispatcher.HasShutdownStarted)
+        {
+            return;
+        }
+
+        dispatcher.BeginInvoke(action);
+    }
+
+    private void HandleEngineFailure(string reason)
+    {
+        if (IsExiting)
+        {
+            return;
+        }
+
+        _engine.Stop();
+        IsEngineRunning = false;
+        StatusMessage = $"Audio stream was lost ({reason}). Reconnecting...";
+
+        // Let the watchdog restart it shortly, once the device change that killed it has settled.
+        _nextRestartTicks = Environment.TickCount64 + 1000;
+    }
+
+    /// <summary>
+    /// Keeps the pipeline alive without the user having to open the window: restarts a stream
+    /// that died or silently stalled, and retries a failed start with backoff.
+    /// </summary>
+    private void RunWatchdog()
+    {
+        if (IsExiting || SelectedDevice is null || !IsCableInstalled)
+        {
+            return;
+        }
+
+        if (IsEngineRunning)
+        {
+            if (_engine.TimeSinceLastAudio is { } idle && idle > StallThreshold)
+            {
+                HandleEngineFailure($"no audio for {idle.TotalSeconds:0} s");
+            }
+            else if (_restartAttempts > 0 && Environment.TickCount64 - _engineStartedTicks > 30_000)
+            {
+                _restartAttempts = 0; // healthy for a while: forget earlier failures
+            }
+
+            return;
+        }
+
+        if (Environment.TickCount64 < _nextRestartTicks)
+        {
+            return;
+        }
+
+        StartEngineForSelectedDevice();
+        if (!IsEngineRunning)
+        {
+            _restartAttempts++;
+            var delayMs = Math.Min(30_000, 2_000 * (1 << Math.Min(_restartAttempts, 4)));
+            _nextRestartTicks = Environment.TickCount64 + delayMs;
         }
     }
 
@@ -356,6 +458,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _engine.BassDb = BassDb;
             _engine.IsMuted = IsMuted;
             IsEngineRunning = true;
+            _engineStartedTicks = Environment.TickCount64;
             StatusMessage = null;
         }
         catch (Exception ex)
@@ -558,5 +661,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         _meterTimer?.Stop();
         _saveTimer?.Stop();
         _appAudioSessionTimer?.Stop();
+        _deviceRefreshTimer?.Stop();
+        _watchdogTimer?.Stop();
     }
 }

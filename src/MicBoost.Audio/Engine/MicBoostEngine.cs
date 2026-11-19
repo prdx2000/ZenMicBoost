@@ -45,6 +45,10 @@ public sealed class MicBoostEngine : IMicBoostEngine
     private SoftLimiterSampleProvider? _outputLimiter;
     private LevelMeterSampleProvider? _postMeter;
 
+    // Environment.TickCount64 of the last mic packet / last render read, for the stall watchdog.
+    private long _lastCaptureTicks;
+    private long _lastRenderTicks;
+
     private int? _appAudioProcessId;
     private double _appAudioVolume = 1.0;
     private IProcessLoopbackCapture? _appAudioCapture;
@@ -54,12 +58,27 @@ public sealed class MicBoostEngine : IMicBoostEngine
     public MicBoostEngine(IVirtualOutputDevice virtualOutput)
     {
         _virtualOutput = virtualOutput ?? throw new ArgumentNullException(nameof(virtualOutput));
+        _virtualOutput.Failed += (_, ex) => EngineError?.Invoke(this, ex);
 
         // MicBoost mostly runs hidden in the tray, which is exactly when Windows throttles it.
         AudioScheduling.DisableProcessPowerThrottling();
     }
 
     public bool IsRunning => _capture is not null;
+
+    public TimeSpan? TimeSinceLastAudio
+    {
+        get
+        {
+            if (_capture is null)
+            {
+                return null;
+            }
+
+            var oldest = Math.Min(Interlocked.Read(ref _lastCaptureTicks), Interlocked.Read(ref _lastRenderTicks));
+            return TimeSpan.FromMilliseconds(Environment.TickCount64 - oldest);
+        }
+    }
 
     public double GainDb
     {
@@ -156,9 +175,14 @@ public sealed class MicBoostEngine : IMicBoostEngine
         _capture.DataAvailable += OnDataAvailable;
         _capture.RecordingStopped += OnRecordingStopped;
 
+        // Count the start as activity, so the watchdog gives a fresh stream time to begin flowing.
+        var now = Environment.TickCount64;
+        Interlocked.Exchange(ref _lastCaptureTicks, now);
+        Interlocked.Exchange(ref _lastRenderTicks, now);
+
         try
         {
-            _virtualOutput.Start(new ProAudioThreadSampleProvider(_postMeter));
+            _virtualOutput.Start(new ProAudioThreadSampleProvider(_postMeter, this));
             _capture.StartRecording();
         }
         catch (Exception)
@@ -320,6 +344,7 @@ public sealed class MicBoostEngine : IMicBoostEngine
     {
         // Raised on NAudio's capture thread, which it never registers with MMCSS itself.
         AudioScheduling.EnsureCurrentThreadIsProAudio();
+        Interlocked.Exchange(ref _lastCaptureTicks, Environment.TickCount64);
         _buffer?.AddSamples(e.Buffer, 0, e.BytesRecorded);
     }
 
@@ -344,14 +369,20 @@ public sealed class MicBoostEngine : IMicBoostEngine
     private sealed class ProAudioThreadSampleProvider : ISampleProvider
     {
         private readonly ISampleProvider _source;
+        private readonly MicBoostEngine _engine;
 
-        public ProAudioThreadSampleProvider(ISampleProvider source) => _source = source;
+        public ProAudioThreadSampleProvider(ISampleProvider source, MicBoostEngine engine)
+        {
+            _source = source;
+            _engine = engine;
+        }
 
         public WaveFormat WaveFormat => _source.WaveFormat;
 
         public int Read(float[] buffer, int offset, int count)
         {
             AudioScheduling.EnsureCurrentThreadIsProAudio();
+            Interlocked.Exchange(ref _engine._lastRenderTicks, Environment.TickCount64);
             return _source.Read(buffer, offset, count);
         }
     }

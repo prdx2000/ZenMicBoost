@@ -19,4 +19,10 @@ public interface IVirtualOutputDevice : IDisposable
 
     /// <summary>Stops rendering, if started.</summary>
     void Stop();
+
+    /// <summary>
+    /// Raised (on the render thread) when rendering stops on its own because of an error, e.g. the
+    /// endpoint was invalidated by a device change or an audio service restart.
+    /// </summary>
+    event EventHandler<Exception>? Failed;
 }
